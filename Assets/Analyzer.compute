@@ -1,0 +1,29 @@
+#pragma kernel Analyzer
+
+Texture2D<float4> Source;
+RWStructuredBuffer<uint> Output;
+
+groupshared uint acc[256];
+
+[numthreads(1, 1, 1)]
+void Analyzer(uint2 id : SV_DispatchThreadID)
+{
+    for (uint i = 0; i < 256; i++) acc[i] = 0;
+
+    uint w, h;
+    Source.GetDimensions(w, h);
+    w = 1024;
+    h = 1024;
+
+    for (uint y = 0; y < h; y += h / 256)
+    {
+        for (uint x = 0; x < w; x += w / 256)
+        {
+            float3 rgb = saturate(Source[uint2(x, y)].xyz);
+            uint s = dot(rgb, 1.0 / 3) * 255;
+            acc[s]++;
+        }
+    }
+
+    for (i = 0; i < 256; i++) Output[i] = acc[i];
+}
