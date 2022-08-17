@@ -564,5 +564,5 @@ MonoBehaviour:
   _webcamResolution: {x: 1920, y: 1080}
   _webcamFrameRate: 30
   _outputTexture: {fileID: 0}
-  _outputResolution: {x: 7680, y: 4320}
+  _outputResolution: {x: 4096, y: 4096}
   _shader: {fileID: 4800000, guid: 3f7d8db4748f54c638a46cec0b0e61f8, type: 3}
