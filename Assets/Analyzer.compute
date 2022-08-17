@@ -1,29 +1,42 @@
-#pragma kernel Analyzer
+#pragma kernel HistogramPerRow
+#pragma kernel HistogramTotal
+
+uint2 Dims;
 
 Texture2D<float4> Source;
-RWStructuredBuffer<uint> Output;
+RWStructuredBuffer<uint> PerRowOut;
 
-groupshared uint acc[256];
-
-[numthreads(1, 1, 1)]
-void Analyzer(uint2 id : SV_DispatchThreadID)
+uint LumaIndex(float3 rgb)
 {
-    for (uint i = 0; i < 256; i++) acc[i] = 0;
+    return saturate(dot(rgb, float3(0.2126729, 0.7151522, 0.0721750))) * 255;
+}
 
-    uint w, h;
-    Source.GetDimensions(w, h);
-    w = 1024;
-    h = 1024;
+[numthreads(32, 1, 1)]
+void HistogramPerRow(uint id : SV_DispatchThreadID)
+{
+    if (id >= Dims.y) return;
 
-    for (uint y = 0; y < h; y += h / 256)
-    {
-        for (uint x = 0; x < w; x += w / 256)
-        {
-            float3 rgb = saturate(Source[uint2(x, y)].xyz);
-            uint s = dot(rgb, 1.0 / 3) * 255;
-            acc[s]++;
-        }
-    }
+    uint acc[256];
+    for (uint i = 0; i < 256; i++)
+        acc[i] = 0;
 
-    for (i = 0; i < 256; i++) Output[i] = acc[i];
+    for (uint x = 0; x < Dims.x; x++)
+        acc[LumaIndex(Source[uint2(x, id)].rgb)]++;
+
+    for (i = 0; i < 256; i++)
+        PerRowOut[id * 256 + i] = acc[i];
+}
+
+StructuredBuffer<uint> PerRowIn;
+RWStructuredBuffer<uint> TotalOut;
+
+[numthreads(32, 1, 1)]
+void HistogramTotal(uint id : SV_DispatchThreadID)
+{
+    uint acc = 0;
+
+    for (uint y = 0; y < Dims.y; y++)
+        acc += PerRowIn[y * 256 + id];
+
+    TotalOut[id] = acc;
 }
