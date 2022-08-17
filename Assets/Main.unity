@@ -492,6 +492,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _source: {fileID: 1896606822}
   _compute: {fileID: 7200000, guid: 77495e3ed65804548bf260c618a3baf3, type: 3}
+  _verticalScan: 0
   _inputView: {fileID: 529484213}
   _outputView: {fileID: 29102596}
   _outputShader: {fileID: 4800000, guid: 899af801341c64ddb9577fc92c49c83d, type: 3}

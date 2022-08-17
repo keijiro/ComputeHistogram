@@ -1,10 +1,10 @@
-#pragma kernel HistogramPerRow
-#pragma kernel HistogramTotal
+#pragma kernel ScanHDir
+#pragma kernel ScanVDir
+#pragma kernel Aggregate
 
 uint2 Dims;
-
 Texture2D<float4> Source;
-RWStructuredBuffer<uint> PerRowOut;
+RWStructuredBuffer<uint> PerLineOut;
 
 uint LumaIndex(float3 rgb)
 {
@@ -12,31 +12,33 @@ uint LumaIndex(float3 rgb)
 }
 
 [numthreads(32, 1, 1)]
-void HistogramPerRow(uint id : SV_DispatchThreadID)
+void ScanHDir(uint id : SV_DispatchThreadID)
 {
-    if (id >= Dims.y) return;
-
     uint acc[256];
-    for (uint i = 0; i < 256; i++)
-        acc[i] = 0;
-
-    for (uint x = 0; x < Dims.x; x++)
-        acc[LumaIndex(Source[uint2(x, id)].rgb)]++;
-
-    for (i = 0; i < 256; i++)
-        PerRowOut[id * 256 + i] = acc[i];
+    if (id >= Dims.y) return;
+    for (uint i = 0; i < 256; i++) acc[i] = 0;
+    for (uint x = 0; x < Dims.x; x++) acc[LumaIndex(Source[uint2(x, id)].rgb)]++;
+    for (i = 0; i < 256; i++) PerLineOut[id * 256 + i] = acc[i];
 }
 
-StructuredBuffer<uint> PerRowIn;
+[numthreads(32, 1, 1)]
+void ScanVDir(uint id : SV_DispatchThreadID)
+{
+    uint acc[256];
+    if (id >= Dims.x) return;
+    for (uint i = 0; i < 256; i++) acc[i] = 0;
+    for (uint y = 0; y < Dims.y; y++) acc[LumaIndex(Source[uint2(id, y)].rgb)]++;
+    for (i = 0; i < 256; i++) PerLineOut[id * 256 + i] = acc[i];
+}
+
+uint LineCount;
+StructuredBuffer<uint> PerLineIn;
 RWStructuredBuffer<uint> TotalOut;
 
 [numthreads(32, 1, 1)]
-void HistogramTotal(uint id : SV_DispatchThreadID)
+void Aggregate(uint id : SV_DispatchThreadID)
 {
     uint acc = 0;
-
-    for (uint y = 0; y < Dims.y; y++)
-        acc += PerRowIn[y * 256 + id];
-
+    for (uint i = 0; i < LineCount; i++) acc += PerLineIn[i * 256 + id];
     TotalOut[id] = acc;
 }
