@@ -11,7 +11,7 @@ sealed class Analyzer : MonoBehaviour
     [SerializeField] RawImage _outputView = null;
     [SerializeField] Shader _outputShader = null;
 
-    (GraphicsBuffer lines, GraphicsBuffer total) _buffers;
+    (GraphicsBuffer image, GraphicsBuffer lines, GraphicsBuffer total) _buffer;
     Material _material;
 
     GraphicsBuffer NewBuffer(int length)
@@ -20,16 +20,18 @@ sealed class Analyzer : MonoBehaviour
     void Start()
     {
         var dims = _source.OutputResolution;
-        _buffers.lines = NewBuffer(256 * (_verticalScan ? dims.x : dims.y));
-        _buffers.total = NewBuffer(256);
+        _buffer.image = NewBuffer(dims.x * dims.y);
+        _buffer.lines = NewBuffer(256 * (_verticalScan ? dims.x : dims.y));
+        _buffer.total = NewBuffer(256);
         _material = new Material(_outputShader);
         _outputView.material = _material;
     }
 
     void OnDestroy()
     {
-        _buffers.lines?.Dispose();
-        _buffers.total?.Dispose();
+        _buffer.image?.Dispose();
+        _buffer.lines?.Dispose();
+        _buffer.total?.Dispose();
         Destroy(_material);
     }
 
@@ -37,20 +39,25 @@ sealed class Analyzer : MonoBehaviour
     {
         var src = _source.Texture;
 
-        var (pass, lineCount) =
-          _verticalScan ? (1, src.width) : (0, src.height);
+        var (pass2, lineCount) =
+          _verticalScan ? (2, src.width) : (1, src.height);
 
         _compute.SetInts("Dims", src.width, src.height);
-        _compute.SetTexture(pass, "Source", src);
-        _compute.SetBuffer(pass, "PerLineOut", _buffers.lines);
-        _compute.DispatchThreads(pass, lineCount, 1, 1);
-
         _compute.SetInts("LineCount", lineCount);
-        _compute.SetBuffer(2, "PerLineIn", _buffers.lines);
-        _compute.SetBuffer(2, "TotalOut", _buffers.total);
-        _compute.DispatchThreads(2, 256, 1, 1);
+
+        _compute.SetTexture(0, "Source", src);
+        _compute.SetBuffer(0, "ImageOut", _buffer.image);
+        _compute.DispatchThreads(0, src.width, src.height, 1);
+
+        _compute.SetBuffer(pass2, "ImageIn", _buffer.image);
+        _compute.SetBuffer(pass2, "PerLineOut", _buffer.lines);
+        _compute.DispatchThreads(pass2, lineCount, 1, 1);
+
+        _compute.SetBuffer(3, "PerLineIn", _buffer.lines);
+        _compute.SetBuffer(3, "TotalOut", _buffer.total);
+        _compute.DispatchThreads(3, 256, 1, 1);
 
         _inputView.texture = src;
-        _material.SetBuffer("_Histogram", _buffers.total);
+        _material.SetBuffer("_Histogram", _buffer.total);
     }
 }
