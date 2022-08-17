@@ -370,7 +370,7 @@ PlayerSettings:
   enableInternalProfiler: 0
   logObjCUncaughtExceptions: 1
   enableCrashReportAPI: 0
-  cameraUsageDescription: 
+  cameraUsageDescription: This app uses the camera as a video source.
   locationUsageDescription: 
   microphoneUsageDescription: 
   bluetoothUsageDescription: 
