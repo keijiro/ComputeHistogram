@@ -5,11 +5,10 @@ using Klak.TestTools;
 sealed class Analyzer2 : MonoBehaviour
 {
     [SerializeField] ImageSource _source = null;
+    [SerializeField] ComputeShader _compute = null;
     [SerializeField] RawImage _inputView = null;
     [SerializeField] RawImage _outputView = null;
     [SerializeField] Shader _outputShader = null;
-
-    [SerializeField, HideInInspector] ComputeShader _compute = null;
 
     const int ThreadGroupSize = 32;
     const int BinCount = 256;
@@ -30,8 +29,7 @@ sealed class Analyzer2 : MonoBehaviour
         _viewMaterial = new Material(_outputShader);
         _viewMaterial.SetBuffer("_Histogram", _buffer.total);
         _viewMaterial.SetInteger("_BinCount", BinCount);
-        _viewMaterial.SetFloat("_VScale", 3.0f * BinCount / (dims.x * dims.y));
-        _outputView.material = _viewMaterial;
+        _viewMaterial.SetFloat("_VScale", 0.2f * BinCount / (dims.x * dims.y));
     }
 
     void OnDestroy()
@@ -45,6 +43,7 @@ sealed class Analyzer2 : MonoBehaviour
     {
         var src = _source.Texture;
         _inputView.texture = src;
+        _outputView.material = _viewMaterial;
 
         _compute.SetInts("Dims", src.width, src.height);
         _compute.SetTexture(0, "Source", src);

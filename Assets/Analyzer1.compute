@@ -1,0 +1,46 @@
+#pragma kernel Scan
+#pragma kernel Aggregate
+
+float Luma(float3 rgb)
+{
+    const float3 prim = float3(0.2126729, 0.7151522, 0.0721750);
+    return saturate(dot(prim, rgb));
+}
+
+uint2 Dims;
+Texture2D<float4> Source;
+RWStructuredBuffer<uint> TempOut;
+
+#define THREAD_COUNT 32
+#define BIN_COUNT 256
+
+[numthreads(THREAD_COUNT, 1, 1)]
+void Scan(uint y : SV_DispatchThreadID)
+{
+    float bins[BIN_COUNT];
+
+    for (uint i = 0; i < BIN_COUNT; i++) bins[i] = 0;
+
+    for (uint x = 0; x < Dims.x; x++)
+    {
+        uint br = Luma(Source[uint2(x, y)].rgb) * (BIN_COUNT - 1);
+        bins[br]++;
+    }
+
+    for (i = 0; i < BIN_COUNT; i++)
+        TempOut[y * BIN_COUNT + i] = bins[i];
+}
+
+StructuredBuffer<uint> TempIn;
+RWStructuredBuffer<uint> TotalOut;
+
+[numthreads(32, 1, 1)]
+void Aggregate(uint id : SV_DispatchThreadID)
+{
+    uint acc = 0;
+
+    for (uint i = 0; i < Dims.y; i++)
+        acc += TempIn[i * BIN_COUNT + id];
+
+    TotalOut[id] = acc;
+}

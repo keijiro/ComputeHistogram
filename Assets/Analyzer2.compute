@@ -8,7 +8,6 @@ float Luma(float3 rgb)
 }
 
 uint2 Dims;
-
 Texture2D<float4> Source;
 RWStructuredBuffer<uint> TempOut;
 
@@ -22,10 +21,7 @@ void Scan(uint group : SV_GroupID,
           uint thread : SV_GroupThreadID,
           uint x : SV_DispatchThreadID)
 {
-    for (uint i = 0; i < BIN_COUNT; i++)
-    {
-        s_bins[thread][i] = 0;
-    }
+    for (uint i = 0; i < BIN_COUNT; i++) s_bins[thread][i] = 0;
 
     for (uint y = 0; y < Dims.y; y++)
     {
@@ -35,7 +31,7 @@ void Scan(uint group : SV_GroupID,
 
     GroupMemoryBarrierWithGroupSync();
 
-    for (i = x; i < BIN_COUNT; i += THREAD_COUNT)
+    for (i = thread; i < BIN_COUNT; i += THREAD_COUNT)
     {
         uint sum = 0;
         for (uint j = 0; j < THREAD_COUNT; j++)
