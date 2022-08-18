@@ -1747,7 +1747,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40ff2e515a81541cbb664860588e2c6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _sourceType: 4
+  _sourceType: 3
   _texture: {fileID: 0}
   _textureUrl: 
   _video: {fileID: 0}
