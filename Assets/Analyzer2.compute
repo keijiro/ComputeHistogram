@@ -14,19 +14,19 @@ RWStructuredBuffer<uint> TempOut;
 #define THREAD_COUNT 32
 #define BIN_COUNT 256
 
-groupshared uint s_bins[THREAD_COUNT][BIN_COUNT];
+groupshared uint s_bins[BIN_COUNT][THREAD_COUNT];
 
 [numthreads(THREAD_COUNT, 1, 1)]
 void Scan(uint group : SV_GroupID,
           uint thread : SV_GroupThreadID,
           uint y : SV_DispatchThreadID)
 {
-    for (uint i = 0; i < BIN_COUNT; i++) s_bins[thread][i] = 0;
+    for (uint i = 0; i < BIN_COUNT; i++) s_bins[i][thread] = 0;
 
     for (uint x = 0; x < Dims.x; x++)
     {
         uint br = Luma(Source[uint2(x, y)].rgb) * (BIN_COUNT - 1);
-        s_bins[thread][br]++;
+        s_bins[br][thread]++;
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -36,7 +36,7 @@ void Scan(uint group : SV_GroupID,
     {
         uint sum = 0;
         for (uint j = 0; j < THREAD_COUNT; j++)
-            sum += s_bins[j][i];
+            sum += s_bins[i][j];
         TempOut[group * BIN_COUNT + i] = sum;
     }
 }
