@@ -19,17 +19,18 @@ groupshared uint s_bins[THREAD_COUNT][BIN_COUNT];
 [numthreads(THREAD_COUNT, 1, 1)]
 void Scan(uint group : SV_GroupID,
           uint thread : SV_GroupThreadID,
-          uint x : SV_DispatchThreadID)
+          uint y : SV_DispatchThreadID)
 {
     for (uint i = 0; i < BIN_COUNT; i++) s_bins[thread][i] = 0;
 
-    for (uint y = 0; y < Dims.y; y++)
+    for (uint x = 0; x < Dims.x; x++)
     {
         uint br = Luma(Source[uint2(x, y)].rgb) * (BIN_COUNT - 1);
         s_bins[thread][br]++;
     }
 
     GroupMemoryBarrierWithGroupSync();
+    if (y >= Dims.y) return;
 
     for (i = thread; i < BIN_COUNT; i += THREAD_COUNT)
     {
@@ -48,7 +49,7 @@ void Aggregate(uint id : SV_DispatchThreadID)
 {
     uint acc = 0;
 
-    for (uint i = 0; i < Dims.x / THREAD_COUNT; i++)
+    for (uint i = 0; i < Dims.y / THREAD_COUNT; i++)
         acc += TempIn[i * BIN_COUNT + id];
 
     TotalOut[id] = acc;

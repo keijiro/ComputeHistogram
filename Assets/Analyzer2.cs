@@ -23,7 +23,7 @@ sealed class Analyzer2 : MonoBehaviour
     {
         var dims = _source.OutputResolution;
 
-        _buffer.temp = NewBuffer(dims.x / ThreadGroupSize * BinCount);
+        _buffer.temp = NewBuffer(dims.y / ThreadGroupSize * BinCount);
         _buffer.total = NewBuffer(BinCount);
 
         _viewMaterial = new Material(_outputShader);
@@ -48,7 +48,7 @@ sealed class Analyzer2 : MonoBehaviour
         _compute.SetInts("Dims", src.width, src.height);
         _compute.SetTexture(0, "Source", src);
         _compute.SetBuffer(0, "TempOut", _buffer.temp);
-        _compute.DispatchThreads(0, src.width, 1, 1);
+        _compute.DispatchThreads(0, src.height, 1, 1);
 
         _compute.SetBuffer(1, "TempIn", _buffer.temp);
         _compute.SetBuffer(1, "TotalOut", _buffer.total);

@@ -19,6 +19,8 @@ void Scan(uint y : SV_DispatchThreadID)
 {
     float bins[BIN_COUNT];
 
+    if (y >= Dims.y) return;
+
     for (uint i = 0; i < BIN_COUNT; i++) bins[i] = 0;
 
     for (uint x = 0; x < Dims.x; x++)
