@@ -1,0 +1,49 @@
+#pragma kernel VertexBufferUpdate
+#pragma kernel IndexBufferUpdate
+
+#include "Packages/jp.keijiro.noiseshader/Shader/SimplexNoise3D.hlsl"
+
+uint2 Dims;
+float Time;
+
+RWByteAddressBuffer Vertices;
+RWByteAddressBuffer Indices;
+
+// Write vertex data to ByteAddressBuffer
+void WriteVertex(uint vidx, float3 p, float3 n)
+{
+    uint addr_p = vidx * 6 * 4;
+    uint addr_n = addr_p + 3 * 4;
+    Vertices.Store3(addr_p, asuint(p));
+    Vertices.Store3(addr_n, asuint(n));
+}
+
+// Kernel 0: Vertex buffer update task
+[numthreads(64, 1, 1)]
+void VertexBufferUpdate(uint2 id : SV_DispatchThreadID)
+{
+    float2 ip = (float2)id / (Dims - 1) * 2 - 1;
+    float4 sn = SimplexNoiseGrad(float3(ip * 4, Time));
+
+    float3 vx = float3(1, sn.x, 0);
+    float3 vz = float3(0, sn.y, 1);
+
+    float3 p = float3(ip.x, sn.w, ip.y);
+    float3 n = normalize(cross(vz, vx));
+
+    WriteVertex(id.x + id.y * Dims.x, p, n);
+}
+
+// Kernel 1: Index buffer update task
+[numthreads(8, 8, 1)]
+void IndexBufferUpdate(uint2 id : SV_DispatchThreadID)
+{
+    if (any(id >= Dims - 1)) return;
+
+    uint W = Dims.x;
+    uint offs = ((W - 1) * id.y + id.x) * 6;
+    uint i0 = W * id.y + id.x;
+
+    Indices.Store3((offs + 0) * 4, uint3(i0, i0 + W, i0 + 1));
+    Indices.Store3((offs + 3) * 4, uint3(i0 + W + 1, i0 + 1, i0 + W));
+}
