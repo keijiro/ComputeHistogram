@@ -1,0 +1,75 @@
+#pragma kernel Preprocess
+#pragma kernel Scan
+#pragma kernel Aggregate
+
+Texture2D<float4> Source;
+RWStructuredBuffer<float> ImageOut;
+
+[numthreads(8, 8, 1)]
+void Preprocess(uint2 id : SV_DispatchThreadID)
+{
+    const float3 prim = float3(0.2126729, 0.7151522, 0.0721750);
+
+    uint w, h;
+    Source.GetDimensions(w, h);
+
+    if (any(id >= uint2(w, h))) return;
+
+    ImageOut[w * id.y + id.x] = dot(Source[id].rgb, prim);
+}
+
+StructuredBuffer<float> ImageIn;
+RWStructuredBuffer<uint> CountOut;
+uint ScanThreads, ScanLength;
+
+#if 0
+
+[numthreads(32, 1, 1)]
+void Scan(uint id : SV_DispatchThreadID)
+{
+    uint acc[256];
+    for (uint i = 0; i < 256; i++) acc[i] = 0;
+
+    for (i = 0; i < ScanLength; i++)
+    {
+        float v = ImageIn[id * ScanLength + i];
+        acc[min(v * 255, 255)]++;
+    }
+
+    for (i = 0; i < 256; i++)
+        CountOut[i * ScanThreads + id] = acc[i];
+}
+
+#else
+
+[numthreads(32, 1, 1)]
+void Scan(uint id : SV_DispatchThreadID)
+{
+    uint acc[256];
+    for (uint i = 0; i < 256; i++) acc[i] = 0;
+
+    for (i = 0; i < ScanLength; i++)
+    {
+        float v = ImageIn[i * ScanThreads + id];
+        acc[min(v * 255, 255)]++;
+    }
+
+    for (i = 0; i < 256; i++)
+        CountOut[i * ScanThreads + id] = acc[i];
+}
+
+#endif
+
+StructuredBuffer<uint> CountIn;
+RWStructuredBuffer<uint> TotalOut;
+
+[numthreads(32, 1, 1)]
+void Aggregate(uint id : SV_DispatchThreadID)
+{
+    uint acc = 0;
+
+    for (uint i = 0; i < ScanThreads; i++)
+        acc += CountIn[id * ScanThreads + i];
+
+    TotalOut[id] = acc;
+}
