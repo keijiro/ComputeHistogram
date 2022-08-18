@@ -24,38 +24,62 @@ uint ScanThreads, ScanLength;
 
 #if 0
 
+groupshared uint acc[32 * 64];
+
 [numthreads(32, 1, 1)]
-void Scan(uint id : SV_DispatchThreadID)
+void Scan(uint id : SV_DispatchThreadID, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID)
 {
-    uint acc[256];
-    for (uint i = 0; i < 256; i++) acc[i] = 0;
+    for (uint i = 0; i < 64; i++) acc[i * 32 + gtid] = 0;
 
     for (i = 0; i < ScanLength; i++)
     {
         float v = ImageIn[id * ScanLength + i];
-        acc[min(v * 255, 255)]++;
+        acc[gtid * 64 + (uint)min(v * 63, 63)]++;
     }
 
-    for (i = 0; i < 256; i++)
-        CountOut[i * ScanThreads + id] = acc[i];
+    GroupMemoryBarrierWithGroupSync();
+
+    float t1 = 0;
+    float t2 = 0;
+
+    for (uint j = 0; j < 32; j++)
+    {
+        t1 += acc[j * 64 + gtid     ];
+        t2 += acc[j * 64 + gtid + 32];
+    }
+
+    CountOut[gid * 64 + gtid     ] = t1;
+    CountOut[gid * 64 + gtid + 32] = t2;
 }
 
 #else
 
+groupshared uint acc[32 * 64];
+
 [numthreads(32, 1, 1)]
-void Scan(uint id : SV_DispatchThreadID)
+void Scan(uint id : SV_DispatchThreadID, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID)
 {
-    uint acc[256];
-    for (uint i = 0; i < 256; i++) acc[i] = 0;
+    for (uint i = 0; i < 64; i++) acc[i * 32 + gtid] = 0;
 
     for (i = 0; i < ScanLength; i++)
     {
-        float v = ImageIn[i * ScanThreads + id];
-        acc[min(v * 255, 255)]++;
+        float v = ImageIn[((i + (id >> 12) * 32) * 4096) + (id & 0xfff)];
+        acc[gtid * 64 + (uint)min(v * 63, 63)]++;
     }
 
-    for (i = 0; i < 256; i++)
-        CountOut[i * ScanThreads + id] = acc[i];
+    GroupMemoryBarrierWithGroupSync();
+
+    float t1 = 0;
+    float t2 = 0;
+
+    for (uint j = 0; j < 32; j++)
+    {
+        t1 += acc[j * 64 + gtid     ];
+        t2 += acc[j * 64 + gtid + 32];
+    }
+
+    CountOut[gid * 64 + gtid     ] = t1;
+    CountOut[gid * 64 + gtid + 32] = t2;
 }
 
 #endif
@@ -68,8 +92,8 @@ void Aggregate(uint id : SV_DispatchThreadID)
 {
     uint acc = 0;
 
-    for (uint i = 0; i < ScanThreads; i++)
-        acc += CountIn[id * ScanThreads + i];
+    for (uint i = 0; i < ScanThreads / 32; i++)
+        acc += CountIn[i * 64 + id];
 
     TotalOut[id] = acc;
 }

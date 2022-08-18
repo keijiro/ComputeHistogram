@@ -11,7 +11,7 @@ sealed class Analyzer2 : MonoBehaviour
 
     [SerializeField, HideInInspector] ComputeShader _compute = null;
 
-    const int ScanThreadCount = 32 * 512;
+    const int ScanThreadCount = 32 * 4096;
 
     GraphicsBuffer NewBuffer(int length)
       => new GraphicsBuffer(GraphicsBuffer.Target.Structured, length, 4);
@@ -23,8 +23,8 @@ sealed class Analyzer2 : MonoBehaviour
     {
         var dims = _source.OutputResolution;
         _buffer.image = NewBuffer(dims.x * dims.y);
-        _buffer.count = NewBuffer(256 * ScanThreadCount);
-        _buffer.total = NewBuffer(256);
+        _buffer.count = NewBuffer(64 * ScanThreadCount);
+        _buffer.total = NewBuffer(64);
         _viewMaterial = new Material(_outputShader);
         _outputView.material = _viewMaterial;
     }
@@ -54,7 +54,7 @@ sealed class Analyzer2 : MonoBehaviour
 
         _compute.SetBuffer(2, "CountIn", _buffer.count);
         _compute.SetBuffer(2, "TotalOut", _buffer.total);
-        _compute.DispatchThreads(2, 256, 1, 1);
+        _compute.DispatchThreads(2, 64, 1, 1);
 
         _inputView.texture = src;
         _viewMaterial.SetBuffer("_Histogram", _buffer.total);

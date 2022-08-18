@@ -23,7 +23,7 @@ void Vertex(float4 position : POSITION,
 float4 Fragment(float4 position : SV_Position,
                 float2 texCoord : TEXCOORD0) : SV_Target
 {
-    uint x = texCoord.x * 256;
+    uint x = texCoord.x * 64;
     return texCoord.y < _Histogram[x] * 0.000005;
 }
 
