@@ -1,90 +1,50 @@
-#pragma kernel Preprocess
 #pragma kernel Scan
 #pragma kernel Aggregate
 
-Texture2D<float4> Source;
-RWStructuredBuffer<float> ImageOut;
-
-[numthreads(8, 8, 1)]
-void Preprocess(uint2 id : SV_DispatchThreadID)
+float Luma(float3 rgb)
 {
     const float3 prim = float3(0.2126729, 0.7151522, 0.0721750);
-
-    uint w, h;
-    Source.GetDimensions(w, h);
-
-    if (any(id >= uint2(w, h))) return;
-
-    ImageOut[w * id.y + id.x] = dot(Source[id].rgb, prim);
+    return saturate(dot(prim, rgb));
 }
 
-StructuredBuffer<float> ImageIn;
-RWStructuredBuffer<uint> CountOut;
-uint ScanThreads, ScanLength;
+uint2 Dims;
 
-#if 0
+Texture2D<float4> Source;
+RWStructuredBuffer<uint> TempOut;
 
-groupshared uint acc[32 * 64];
+#define THREAD_COUNT 32
+#define BIN_COUNT 256
 
-[numthreads(32, 1, 1)]
-void Scan(uint id : SV_DispatchThreadID, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID)
+groupshared uint s_bins[THREAD_COUNT][BIN_COUNT];
+
+[numthreads(THREAD_COUNT, 1, 1)]
+void Scan(uint group : SV_GroupID,
+          uint thread : SV_GroupThreadID,
+          uint x : SV_DispatchThreadID)
 {
-    for (uint i = 0; i < 64; i++) acc[i * 32 + gtid] = 0;
-
-    for (i = 0; i < ScanLength; i++)
+    for (uint i = 0; i < BIN_COUNT; i++)
     {
-        float v = ImageIn[id * ScanLength + i];
-        acc[gtid * 64 + (uint)min(v * 63, 63)]++;
+        s_bins[thread][i] = 0;
+    }
+
+    for (uint y = 0; y < Dims.y; y++)
+    {
+        uint br = Luma(Source[uint2(x, y)].rgb) * (BIN_COUNT - 1);
+        s_bins[thread][br]++;
     }
 
     GroupMemoryBarrierWithGroupSync();
 
-    float t1 = 0;
-    float t2 = 0;
-
-    for (uint j = 0; j < 32; j++)
+    for (i = x; i < BIN_COUNT; i += THREAD_COUNT)
     {
-        t1 += acc[j * 64 + gtid     ];
-        t2 += acc[j * 64 + gtid + 32];
+        uint sum = 0;
+        for (uint j = 0; j < THREAD_COUNT; j++)
+            sum += s_bins[j][i];
+        TempOut[group * BIN_COUNT + i] = sum;
     }
-
-    CountOut[gid * 64 + gtid     ] = t1;
-    CountOut[gid * 64 + gtid + 32] = t2;
 }
 
-#else
-
-groupshared uint acc[32 * 64];
-
-[numthreads(32, 1, 1)]
-void Scan(uint id : SV_DispatchThreadID, uint gtid : SV_GroupThreadID, uint gid : SV_GroupID)
-{
-    for (uint i = 0; i < 64; i++) acc[i * 32 + gtid] = 0;
-
-    for (i = 0; i < ScanLength; i++)
-    {
-        float v = ImageIn[((i + (id >> 12) * 32) * 4096) + (id & 0xfff)];
-        acc[gtid * 64 + (uint)min(v * 63, 63)]++;
-    }
-
-    GroupMemoryBarrierWithGroupSync();
-
-    float t1 = 0;
-    float t2 = 0;
-
-    for (uint j = 0; j < 32; j++)
-    {
-        t1 += acc[j * 64 + gtid     ];
-        t2 += acc[j * 64 + gtid + 32];
-    }
-
-    CountOut[gid * 64 + gtid     ] = t1;
-    CountOut[gid * 64 + gtid + 32] = t2;
-}
-
-#endif
-
-StructuredBuffer<uint> CountIn;
+StructuredBuffer<uint> TempIn;
 RWStructuredBuffer<uint> TotalOut;
 
 [numthreads(32, 1, 1)]
@@ -92,8 +52,8 @@ void Aggregate(uint id : SV_DispatchThreadID)
 {
     uint acc = 0;
 
-    for (uint i = 0; i < ScanThreads / 32; i++)
-        acc += CountIn[i * 64 + id];
+    for (uint i = 0; i < Dims.x / THREAD_COUNT; i++)
+        acc += TempIn[i * BIN_COUNT + id];
 
     TotalOut[id] = acc;
 }

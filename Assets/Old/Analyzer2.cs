@@ -11,28 +11,32 @@ sealed class Analyzer2 : MonoBehaviour
 
     [SerializeField, HideInInspector] ComputeShader _compute = null;
 
-    const int ScanThreadCount = 32 * 4096;
+    const int ThreadGroupSize = 32;
+    const int BinCount = 256;
 
     GraphicsBuffer NewBuffer(int length)
       => new GraphicsBuffer(GraphicsBuffer.Target.Structured, length, 4);
 
-    (GraphicsBuffer image, GraphicsBuffer count, GraphicsBuffer total) _buffer;
+    (GraphicsBuffer temp, GraphicsBuffer total) _buffer;
     Material _viewMaterial;
 
     void Start()
     {
         var dims = _source.OutputResolution;
-        _buffer.image = NewBuffer(dims.x * dims.y);
-        _buffer.count = NewBuffer(64 * ScanThreadCount);
-        _buffer.total = NewBuffer(64);
+
+        _buffer.temp = NewBuffer(dims.x / ThreadGroupSize * BinCount);
+        _buffer.total = NewBuffer(BinCount);
+
         _viewMaterial = new Material(_outputShader);
+        _viewMaterial.SetBuffer("_Histogram", _buffer.total);
+        _viewMaterial.SetInteger("_BinCount", BinCount);
+        _viewMaterial.SetFloat("_VScale", 3.0f * BinCount / (dims.x * dims.y));
         _outputView.material = _viewMaterial;
     }
 
     void OnDestroy()
     {
-        _buffer.image?.Dispose();
-        _buffer.count?.Dispose();
+        _buffer.temp?.Dispose();
         _buffer.total?.Dispose();
         Destroy(_viewMaterial);
     }
@@ -40,23 +44,15 @@ sealed class Analyzer2 : MonoBehaviour
     void Update()
     {
         var src = _source.Texture;
-
-        _compute.SetInt("ScanThreads", ScanThreadCount);
-        _compute.SetInt("ScanLength", src.width * src.height / ScanThreadCount);
-
-        _compute.SetTexture(0, "Source", src);
-        _compute.SetBuffer(0, "ImageOut", _buffer.image);
-        _compute.DispatchThreads(0, src.width, src.height, 1);
-
-        _compute.SetBuffer(1, "ImageIn", _buffer.image);
-        _compute.SetBuffer(1, "CountOut", _buffer.count);
-        _compute.DispatchThreads(1, ScanThreadCount, 1, 1);
-
-        _compute.SetBuffer(2, "CountIn", _buffer.count);
-        _compute.SetBuffer(2, "TotalOut", _buffer.total);
-        _compute.DispatchThreads(2, 64, 1, 1);
-
         _inputView.texture = src;
-        _viewMaterial.SetBuffer("_Histogram", _buffer.total);
+
+        _compute.SetInts("Dims", src.width, src.height);
+        _compute.SetTexture(0, "Source", src);
+        _compute.SetBuffer(0, "TempOut", _buffer.temp);
+        _compute.DispatchThreads(0, src.width, 1, 1);
+
+        _compute.SetBuffer(1, "TempIn", _buffer.temp);
+        _compute.SetBuffer(1, "TotalOut", _buffer.total);
+        _compute.DispatchThreads(1, BinCount, 1, 1);
     }
 }
