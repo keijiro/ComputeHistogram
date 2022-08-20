@@ -11,7 +11,7 @@ sealed class Analyzer1 : MonoBehaviour
     [SerializeField] Shader _outputShader = null;
 
     const int ThreadGroupSize = 32;
-    const int BinCount = 256;
+    const int BinCount = 128;
 
     GraphicsBuffer NewBuffer(int length)
       => new GraphicsBuffer(GraphicsBuffer.Target.Structured, length, 4);

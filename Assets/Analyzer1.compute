@@ -12,12 +12,12 @@ Texture2D<float4> Source;
 RWStructuredBuffer<uint> TempOut;
 
 #define THREAD_COUNT 32
-#define BIN_COUNT 256
+#define BIN_COUNT 128
 
 [numthreads(THREAD_COUNT, 1, 1)]
 void Scan(uint y : SV_DispatchThreadID)
 {
-    float bins[BIN_COUNT];
+    uint bins[BIN_COUNT];
 
     if (y >= Dims.y) return;
 

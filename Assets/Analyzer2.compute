@@ -12,7 +12,7 @@ Texture2D<float4> Source;
 RWStructuredBuffer<uint> TempOut;
 
 #define THREAD_COUNT 32
-#define BIN_COUNT 256
+#define BIN_COUNT 128
 
 groupshared uint s_bins[BIN_COUNT][THREAD_COUNT];
 
